@@ -1,0 +1,420 @@
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <sstream>
+#include <algorithm>
+using namespace std;
+
+struct Student {
+    string roll, name, type, info;
+    float marks;
+};
+
+string currentUser, currentRole;
+
+// ---------- LOGIN ----------
+bool login() {
+    ifstream fin("credentials.txt");
+    if (!fin) {
+        cout << "Error: credentials.txt missing!\n";
+        return false;
+    }
+
+    string u, p;
+    cout << "Enter Username: ";
+    cin >> u;
+    cout << "Enter Password: ";
+    cin >> p;
+
+    string fileU, fileP, role;
+    while (fin >> fileU >> fileP >> role) {
+        if (u == fileU && p == fileP) {
+            currentUser = u;
+            currentRole = role;
+            return true;
+        }
+    }
+    return false;
+}
+
+// ---------- LOAD STUDENT DATA ----------
+vector<Student> loadStudents() {
+    vector<Student> list;
+    ifstream fin("students.txt");
+    string line;
+
+    while (getline(fin, line)) {
+        stringstream ss(line);
+        Student s;
+        getline(ss, s.roll, ',');
+        getline(ss, s.name, ',');
+        ss >> s.marks;
+        ss.ignore();
+        getline(ss, s.type, ',');
+        getline(ss, s.info);
+        list.push_back(s);
+    }
+    return list;
+}
+
+// ---------- SAVE STUDENT DATA ----------
+void saveStudents(vector<Student> &list) {
+    ofstream fout("students.txt");
+    for (auto &s : list) {
+        fout << s.roll << "," << s.name << "," << s.marks << ","
+             << s.type << "," << s.info << "\n";
+    }
+}
+
+// ---------- ADD STUDENT ----------
+void addStudent() {
+    vector<Student> list = loadStudents();
+    Student s;
+
+    cout << "Enter Roll No: ";
+    cin >> s.roll;
+    cout << "Enter Name: ";
+    cin.ignore();
+    getline(cin, s.name);
+    cout << "Enter Marks: ";
+    cin >> s.marks;
+    cout << "Enter Type (dayscholar/hostel): ";
+    cin >> s.type;
+    cout << "Enter Bus No / Room No: ";
+    cin >> s.info;
+
+    list.push_back(s);
+    saveStudents(list);
+
+    cout << "Student Added Successfully!\n";
+}
+
+// ---------- VIEW ALL ----------
+void viewAll() {
+    vector<Student> list = loadStudents();
+    cout << "\n--- ALL STUDENTS ---\n";
+    for (auto &s : list) {
+        cout << s.roll << " | " << s.name << " | " << s.marks
+             << " | " << s.type << " | " << s.info << endl;
+    }
+}
+
+// ---------- SEARCH BY ROLL ----------
+void searchByRoll() {
+    string r;
+    cout << "Enter Roll to Search: ";
+    cin >> r;
+
+    vector<Student> list = loadStudents();
+    for (auto &s : list) {
+        if (s.roll == r) {
+            cout << "\nFOUND:\n";
+            cout << s.roll << " | " << s.name << " | " << s.marks
+                 << " | " << s.type << " | " << s.info << endl;
+            return;
+        }
+    }
+    cout << "Student Not Found\n";
+}
+
+// ---------- SEARCH BY NAME ----------
+void searchByName() {
+    string name;
+    cout << "Enter Name to Search: ";
+    cin.ignore();
+    getline(cin, name);
+
+    vector<Student> list = loadStudents();
+    bool found = false;
+    for (auto &s : list) {
+        if (s.name == name) {
+            cout << s.roll << " | " << s.name << " | " << s.marks << endl;
+            found = true;
+        }
+    }
+
+    if (!found) cout << "No Student Found\n";
+}
+
+// ---------- UPDATE ----------
+void updateStudent() {
+    string r;
+    cout << "Enter Roll to Update: ";
+    cin >> r;
+
+    vector<Student> list = loadStudents();
+    for (auto &s : list) {
+        if (s.roll == r) {
+            cout << "Enter New Name: ";
+            cin.ignore();
+            getline(cin, s.name);
+
+            cout << "Enter New Marks: ";
+            cin >> s.marks;
+
+            cout << "Enter New Type: ";
+            cin >> s.type;
+
+            cout << "Enter New Info: ";
+            cin >> s.info;
+
+            saveStudents(list);
+            cout << "Updated Successfully!\n";
+            return;
+        }
+    }
+    cout << "No Student Found\n";
+}
+
+// ---------- DELETE ONE ----------
+void deleteStudent() {
+    string r;
+    cout << "Enter Roll to Delete: ";
+    cin >> r;
+
+    vector<Student> list = loadStudents();
+    vector<Student> newList;
+
+    bool found = false;
+    for (auto &s : list) {
+        if (s.roll == r)
+            found = true;
+        else
+            newList.push_back(s);
+    }
+
+    if (!found) {
+        cout << "Not Found!\n";
+        return;
+    }
+
+    saveStudents(newList);
+    cout << "Deleted Successfully!\n";
+}
+
+// ---------- DELETE ALL (ADMIN ONLY) ----------
+void deleteAll() {
+    if (currentRole != "admin") {
+        cout << "Only admin can delete all!\n";
+        return;
+    }
+    ofstream fout("students.txt"); // clear file
+    cout << "ALL students deleted!\n";
+}
+
+// ---------- COUNT ----------
+void countStudents() {
+    vector<Student> list = loadStudents();
+    cout << "Total Students: " << list.size() << endl;
+}
+
+// ---------- LIST DAY SCHOLARS ----------
+void listDayScholars() {
+    vector<Student> list = loadStudents();
+    cout << "\n--- DAY SCHOLARS ---\n";
+    for (auto &s : list)
+        if (s.type == "dayscholar")
+            cout << s.roll << " | " << s.name << endl;
+}
+
+// ---------- LIST HOSTELLERS ----------
+void listHostellers() {
+    vector<Student> list = loadStudents();
+    cout << "\n--- HOSTELLERS ---\n";
+    for (auto &s : list)
+        if (s.type == "hostel")
+            cout << s.roll << " | " << s.name << endl;
+}
+
+// ---------- EXPORT TO CSV ----------
+void exportCSV() {
+    vector<Student> v = loadStudents();
+    ofstream fout("report.csv");
+
+    fout << "Roll,Name,Marks,Grade,Type,Info\n";
+
+    for (auto &s : v) {
+        char grade;
+
+        if (s.marks >= 90) grade = 'A';
+        else if (s.marks >= 75) grade = 'B';
+        else if (s.marks >= 60) grade = 'C';
+        else if (s.marks >= 50) grade = 'D';
+        else grade = 'F';
+
+        fout << s.roll << "," << s.name << "," << s.marks << ","
+             << grade << "," << s.type << "," << s.info << "\n";
+    }
+
+    cout << "CSV Exported: report.csv\n";
+}
+
+// ---------- GPA CALCULATOR ----------
+void calculateGPA() {
+    string r;
+    cout << "Enter Roll: ";
+    cin >> r;
+
+    vector<Student> v = loadStudents();
+    for (auto &s : v) {
+        if (s.roll == r) {
+            float gpa = (s.marks / 10);
+            if (gpa > 10) gpa = 10;
+
+            cout << "GPA of " << s.name << " = " << gpa << endl;
+            return;
+        }
+    }
+    cout << "Student not found!\n";
+}
+
+// ---------- TOP 5 STUDENTS ----------
+void topFive() {
+    vector<Student> v = loadStudents();
+    sort(v.begin(), v.end(), [](Student a, Student b){
+        return a.marks > b.marks;
+    });
+
+    cout << "\n--- TOP 5 STUDENTS ---\n";
+    for (int i = 0; i < 5 && i < v.size(); i++)
+        cout << v[i].roll << " | " << v[i].name << " | " << v[i].marks << endl;
+}
+
+// ---------- SORT STUDENTS ----------
+void sortStudents() {
+    vector<Student> v = loadStudents();
+    int choice;
+
+    cout << "1. Sort by Marks\n2. Sort by Name\nEnter choice: ";
+    cin >> choice;
+
+    if (choice == 1) {
+        sort(v.begin(), v.end(), [](Student a, Student b){
+            return a.marks > b.marks;
+        });
+    } else if (choice == 2) {
+        sort(v.begin(), v.end(), [](Student a, Student b){
+            return a.name < b.name;
+        });
+    }
+
+    cout << "\n--- SORTED LIST ---\n";
+    for (auto &s : v)
+        cout << s.roll << " | " << s.name << " | " << s.marks << endl;
+}
+
+// ---------- FILTER (TOPPER / PASS / FAIL) ----------
+void filterResults() {
+    vector<Student> v = loadStudents();
+    int ch;
+
+    cout << "1. Topper\n2. Pass (>=50)\n3. Fail (<50)\nChoice: ";
+    cin >> ch;
+
+    if (ch == 1) {
+        float maxMarks = -1;
+        for (auto &s : v) maxMarks = max(maxMarks, s.marks);
+
+        cout << "\n--- TOPPER(S) ---\n";
+        for (auto &s : v)
+            if (s.marks == maxMarks)
+                cout << s.roll << " | " << s.name << " | " << s.marks << endl;
+    }
+    else if (ch == 2) {
+        cout << "\n--- PASS ---\n";
+        for (auto &s : v)
+            if (s.marks >= 50)
+                cout << s.roll << " | " << s.name << " | " << s.marks << endl;
+    }
+    else if (ch == 3) {
+        cout << "\n--- FAIL ---\n";
+        for (auto &s : v)
+            if (s.marks < 50)
+                cout << s.roll << " | " << s.name << " | " << s.marks << endl;
+    }
+}
+
+// ---------- PASSWORD CHANGE (ADMIN ONLY) ----------
+void changePassword() {
+    if (currentRole != "admin") {
+        cout << "Only admin can change passwords!\n";
+        return;
+    }
+
+    string user, newPass;
+    cout << "Enter username to modify: ";
+    cin >> user;
+    cout << "Enter NEW password: ";
+    cin >> newPass;
+
+    ifstream fin("credentials.txt");
+    vector<string> u, p, r;
+    string a, b, c;
+
+    while (fin >> a >> b >> c) {
+        if (a == user) b = newPass;
+        u.push_back(a);
+        p.push_back(b);
+        r.push_back(c);
+    }
+    fin.close();
+
+    ofstream fout("credentials.txt");
+    for (int i = 0; i < u.size(); i++)
+        fout << u[i] << " " << p[i] << " " << r[i] << "\n";
+
+    cout << "Password Updated!\n";
+}
+
+// ---------- MENU ----------
+void menu() {
+    int ch;
+    do {
+        cout << "\n--- MENU ---\n";
+        cout << "1. Add Student\n2. View All\n3. Search by Roll\n4. Search by Name\n5. Update\n6. Delete One\n";
+        cout << "7. Count Students\n8. List Day Scholars\n9. List Hostellers\n";
+        cout << "10. Export CSV\n11. GPA Calculator\n12. Top 5 Students\n13. Sort Students\n14. Filter Results\n";
+        
+        if (currentRole == "admin") {
+            cout << "15. Delete ALL Students\n16. Change Password\n";
+        }
+        
+        cout << "0. Exit\nEnter choice: ";
+        cin >> ch;
+
+        switch (ch) {
+            case 1: addStudent(); break;
+            case 2: viewAll(); break;
+            case 3: searchByRoll(); break;
+            case 4: searchByName(); break;
+            case 5: updateStudent(); break;
+            case 6: deleteStudent(); break;
+            case 7: countStudents(); break;
+            case 8: listDayScholars(); break;
+            case 9: listHostellers(); break;
+            case 10: exportCSV(); break;
+            case 11: calculateGPA(); break;
+            case 12: topFive(); break;
+            case 13: sortStudents(); break;
+            case 14: filterResults(); break;
+            case 15: if (currentRole == "admin") deleteAll(); break;
+            case 16: if (currentRole == "admin") changePassword(); break;
+            case 0: cout << "Goodbye!\n"; break;
+            default: cout << "Invalid Choice\n";
+        }
+    } while (ch != 0);
+}
+
+// ---------- MAIN ----------
+int main() {
+    cout << "----- Student Management System -----\n";
+
+    if (!login()) {
+        cout << "Invalid Credentials!\n";
+        return 0;
+    }
+
+    cout << "\nLogin Successful! Role: " << currentRole << endl;
+    menu();
+    return 0;
+}
